@@ -1,0 +1,49 @@
+openapi: 3.0.0
+info:
+  title: 用户模块接口规范
+  version: 1.0.0
+paths:
+  /api/user/login:
+    post:
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  minLength: 6
+                  maxLength: 20
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: number
+                    example: 200
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                      userInfo:
+                        $ref: '#/components/schemas/UserInfo'
+components:
+  schemas:
+    UserInfo:
+      type: object
+      properties:
+        id: number
+        name: string
+        avatar: string

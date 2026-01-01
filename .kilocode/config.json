@@ -1,0 +1,10 @@
+{
+  "specPaths": {
+    "apiSpec": "./specs/api/",
+    "featureSpec": "./specs/feature/",
+    "codeSpec": "./specs/code/",
+    "dataSpec": "./specs/data/"
+  },
+  "outputPath": "./src/",
+  "validateOnGenerate": true
+}
