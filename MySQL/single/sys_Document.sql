@@ -47,7 +47,7 @@ CREATE TABLE `document` (
   PRIMARY KEY (`id`),
   KEY `index_url` (`url`),
   KEY `index_date` (`date`)
-) ENGINE=InnoDB AUTO_INCREMENT=1755827879112 DEFAULT CHARSET=utf8mb3 COMMENT='测试用例文档\n后端开发者在测试好后，把选好的测试用例上传，这样就能共享给前端/客户端开发者';
+) COMMENT='测试用例文档\n后端开发者在测试好后，把选好的测试用例上传，这样就能共享给前端/客户端开发者';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
