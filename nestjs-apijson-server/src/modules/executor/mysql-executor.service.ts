@@ -226,27 +226,43 @@ export class MySQLExecutorService {
    */
   private async executeInsert(query: Query): Promise<QueryExecuteResult> {
     this.logger.debug(`执行 INSERT 查询: ${query.table}`);
+    this.logger.debug(`SQL: ${query.sql}`);
+    this.logger.debug(`参数: ${JSON.stringify(query.params)}`);
+    this.logger.debug(`query.data 类型: ${typeof query.data}`);
+    this.logger.debug(`query.data 是否为数组: ${Array.isArray(query.data)}`);
+    this.logger.debug(`query.data 内容: ${JSON.stringify(query.data)}`);
+    this.logger.debug(`query.data 长度: ${Array.isArray(query.data) ? query.data.length : 'N/A'}`);
 
     const result = await this.databaseService.query(query.sql, query.params);
     const insertId = this.extractInsertId(result);
+    const affectedRows = this.extractAffectedRows(result);
 
-    // 如果是批量插入，返回所有插入的 ID
+    this.logger.debug(`执行结果: insertId=${insertId}, affectedRows=${affectedRows}`);
+    this.logger.debug(`完整结果: ${JSON.stringify(result)}`);
+
+    // 如果是批量插入，使用insertId和affectedRows查询
     if (Array.isArray(query.data) && query.data.length > 1) {
-      const insertIds = [insertId];
-      for (let i = 1; i < query.data.length; i++) {
-        insertIds.push(insertId + i);
-      }
+      this.logger.debug(`✅ 检测到批量插入: ${query.data.length} 条记录`);
+      this.logger.debug(`insertId: ${insertId}, affectedRows: ${affectedRows}`);
+      
+      // 查询从insertId开始的affectedRows条记录
+      const insertedData = await this.queryInsertedRecordsByIdRange(
+        query.table,
+        insertId,
+        affectedRows
+      );
 
-      // 批量插入时，查询所有插入的记录
-      const insertedData = await this.queryInsertedRecords(query.table, insertIds);
+      this.logger.debug(`查询结果数量: ${insertedData.length}`);
+      this.logger.debug(`查询结果: ${JSON.stringify(insertedData)}`);
 
       return {
         data: insertedData,
-        total: insertIds.length,
-        count: insertIds.length,
+        total: insertedData.length,
+        count: insertedData.length,
       };
     }
 
+    this.logger.debug(`❌ 未检测到批量插入，执行单条插入逻辑`);
     // 单条插入，查询插入的完整记录
     const insertedData = await this.queryInsertedRecords(query.table, [insertId]);
 
@@ -284,6 +300,54 @@ export class MySQLExecutorService {
       this.logger.error(`查询插入记录失败: ${error.message}`, error.stack);
       // 如果查询失败，返回包含 ID 的原始数据
       return ids.map(id => ({ id }));
+    }
+  }
+
+  /**
+   * 根据ID范围查询插入的记录
+   * @param table 表名
+   * @param startId 起始ID
+   * @param count 记录数量
+   * @returns 插入的完整记录
+   */
+  private async queryInsertedRecordsByIdRange(table: string, startId: number, count: number): Promise<any[]> {
+    this.logger.debug(`根据ID范围查询插入的记录: ${table}, 起始ID: ${startId}, 数量: ${count}`);
+
+    if (count <= 0 || startId <= 0) {
+      this.logger.warn(`无效的查询参数: count=${count}, startId=${startId}`);
+      return [];
+    }
+
+    // 计算 endId
+    const endId = startId + count - 1;
+
+    // 构建 SELECT 查询，获取指定ID范围的记录
+    const sql = `SELECT * FROM \`${table}\` WHERE id BETWEEN ? AND ? ORDER BY id ASC`;
+    
+    this.logger.debug(`查询SQL: ${sql}`);
+    this.logger.debug(`查询参数: [${startId}, ${endId}]`);
+    
+    try {
+      const result = await this.databaseService.query(sql, [startId, endId]);
+      const rows = this.extractRows(result);
+      
+      this.logger.debug(`查询到 ${rows.length} 条记录`);
+      
+      // 如果查询到的记录数量少于期望数量，尝试使用LIMIT查询
+      if (rows.length < count) {
+        this.logger.warn(`查询到的记录数(${rows.length})少于期望数(${count})，尝试使用LIMIT查询`);
+        const fallbackSql = `SELECT * FROM \`${table}\` WHERE id >= ? ORDER BY id ASC LIMIT ?`;
+        const fallbackResult = await this.databaseService.query(fallbackSql, [startId, count]);
+        const fallbackRows = this.extractRows(fallbackResult);
+        this.logger.debug(`备用查询到 ${fallbackRows.length} 条记录`);
+        return fallbackRows;
+      }
+      
+      return rows;
+    } catch (error) {
+      this.logger.error(`根据ID范围查询插入记录失败: ${error.message}`, error.stack);
+      // 如果查询失败，返回空数组
+      return [];
     }
   }
 
