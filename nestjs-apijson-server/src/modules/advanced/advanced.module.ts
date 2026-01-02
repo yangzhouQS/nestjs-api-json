@@ -2,7 +2,6 @@ import {Module} from '@nestjs/common';
 import {AdvancedFeaturesService} from './advanced-features.service';
 import {AdvancedController} from './advanced.controller';
 import {DatabaseModule} from '../database/database.module';
-import {DatabaseService} from "@/modules/database/database.service";
 
 /**
  * 高级特性模块
@@ -11,7 +10,7 @@ import {DatabaseService} from "@/modules/database/database.service";
 @Module({
     imports: [DatabaseModule],
     controllers: [AdvancedController],
-    providers: [AdvancedFeaturesService, DatabaseService],
+    providers: [AdvancedFeaturesService],
     exports: [AdvancedFeaturesService],
 })
 export class AdvancedModule {
