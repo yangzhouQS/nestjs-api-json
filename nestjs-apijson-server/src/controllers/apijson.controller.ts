@@ -378,7 +378,7 @@ export class APIJSONController {
         summary: '查询用户总数',
         value: {
           user: {
-            '@column': 'COUNT(*):count',
+            '@column': 'COUNT(*) count',
           },
         },
       },
@@ -387,7 +387,7 @@ export class APIJSONController {
         value: {
           user: {
             'age>': 18,
-            '@column': 'COUNT(*):count',
+            '@column': 'COUNT(*) count',
           },
         },
       },
@@ -417,13 +417,13 @@ export class APIJSONController {
     description: 'APIJSON 查询请求',
     examples: {
       '多表计数': {
-        summary: '查询用户和动态的总数',
+        summary: '查询用户和单据的总数',
         value: {
           user: {
-            '@column': 'COUNT(*):count',
+            '@column': 'COUNT(*) as count',
           },
-          Moment: {
-            '@column': 'COUNT(*):count',
+          receive: {
+            '@column': 'COUNT(*) count',
           },
         },
       },

@@ -236,14 +236,43 @@ export class VerifierService {
         continue;
       }
 
+      // 检查是否是聚合函数表达式（如 COUNT(*):count、SUM(amount):total 等）
+      // 这些表达式包含 (、)、: 等字符，但在 SQL 中是合法的
+      if (this.isAggregateFunctionExpression(column)) {
+        continue;
+      }
+
       // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
-      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
+      // 排除 (、)、:、空格，因为它们在 SQL 表达式中是合法的
+      const invalidChars = /[<>"\\|?\x00-\x1f]/;
       if (invalidChars.test(column)) {
         errors.push(`列 "${column}" 包含非法字符`);
       }
     }
 
     return errors;
+  }
+
+  /**
+   * 检查是否是聚合函数表达式
+   * 例如：COUNT(*):count、SUM(amount):total、AVG(price):avg 等
+   */
+  private isAggregateFunctionExpression(column: string): boolean {
+    // 检查是否包含函数调用括号和别名分隔符
+    // 格式：FUNCTION_NAME(args):alias
+    const functionPattern = /^[A-Za-z_][A-Za-z0-9_]*\(.*\):[A-Za-z_][A-Za-z0-9_]*$/;
+    
+    // 检查是否匹配聚合函数模式
+    if (functionPattern.test(column)) {
+      return true;
+    }
+
+    // 检查是否包含函数调用（括号）
+    if (column.includes('(') && column.includes(')')) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -344,8 +373,14 @@ export class VerifierService {
         continue;
       }
 
+      // 检查是否是聚合函数表达式
+      if (this.isAggregateFunctionExpression(column)) {
+        continue;
+      }
+
       // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
-      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
+      // 排除 (、)、:、空格，因为它们在 SQL 表达式中是合法的
+      const invalidChars = /[<>"\\|?\x00-\x1f]/;
       if (invalidChars.test(column)) {
         errors.push(`分组 "${column}" 包含非法字符`);
       }
@@ -407,18 +442,26 @@ export class VerifierService {
         continue;
       }
 
-      // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
-      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
-      if (invalidChars.test(column)) {
-        errors.push(`排序 "${column}" 包含非法字符`);
-      }
-
-      // 检查排序方向
+      // 提取列名（去除排序方向标记）
+      let columnName = column;
       if (column.endsWith('+') || column.endsWith('-')) {
-        const columnName = column.slice(0, -1);
+        columnName = column.slice(0, -1);
         if (!columnName) {
           errors.push(`排序 "${column}" 缺少列名`);
+          continue;
         }
+      }
+
+      // 检查是否是聚合函数表达式
+      if (this.isAggregateFunctionExpression(columnName)) {
+        continue;
+      }
+
+      // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
+      // 排除 (、)、:、空格，因为它们在 SQL 表达式中是合法的
+      const invalidChars = /[<>"\\|?\x00-\x1f]/;
+      if (invalidChars.test(columnName)) {
+        errors.push(`排序 "${column}" 包含非法字符`);
       }
     }
 
