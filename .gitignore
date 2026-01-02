@@ -6,8 +6,6 @@ yarn.lock
 HELP.md
 target/
 !.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**
-!**/src/test/**
 
 ### STS ###
 .apt_generated
@@ -36,3 +34,5 @@ build/
 .vscode/
 APIJSONORM/bin
 *.DS_Store
+node_modules
+dist
