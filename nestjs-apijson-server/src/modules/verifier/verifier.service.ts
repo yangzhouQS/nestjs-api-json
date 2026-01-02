@@ -231,8 +231,13 @@ export class VerifierService {
         continue;
       }
 
-      // 检查是否包含非法字符
-      const invalidChars = /[<>:"\\|?*\x00-\x1f]/;
+      // * 是 SQL 通配符，表示所有列，应该被允许
+      if (column === '*') {
+        continue;
+      }
+
+      // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
+      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
       if (invalidChars.test(column)) {
         errors.push(`列 "${column}" 包含非法字符`);
       }
@@ -339,8 +344,8 @@ export class VerifierService {
         continue;
       }
 
-      // 检查是否包含非法字符
-      const invalidChars = /[<>:"\\|?*\x00-\x1f]/;
+      // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
+      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
       if (invalidChars.test(column)) {
         errors.push(`分组 "${column}" 包含非法字符`);
       }
@@ -402,8 +407,8 @@ export class VerifierService {
         continue;
       }
 
-      // 检查是否包含非法字符
-      const invalidChars = /[<>:"\\|?*\x00-\x1f]/;
+      // 检查是否包含非法字符（排除 *，因为它是 SQL 通配符）
+      const invalidChars = /[<>:"\\|?\x00-\x1f]/;
       if (invalidChars.test(column)) {
         errors.push(`排序 "${column}" 包含非法字符`);
       }

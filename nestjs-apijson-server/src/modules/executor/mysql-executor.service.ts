@@ -42,7 +42,7 @@ export class MySQLExecutorService {
       original: buildResult,
     };
 
-    this.logger.log('MySQL SQL 查询执行完成');
+    this.logger.log('MySQL SQL 预警执行完成');
     return result;
   }
 
@@ -237,27 +237,54 @@ export class MySQLExecutorService {
         insertIds.push(insertId + i);
       }
 
+      // 批量插入时，查询所有插入的记录
+      const insertedData = await this.queryInsertedRecords(query.table, insertIds);
+
       return {
-        data: query.data.map((row, index) => ({
-          ...row,
-          id: insertIds[index],
-        })),
+        data: insertedData,
         total: insertIds.length,
         count: insertIds.length,
       };
     }
 
-    // 单条插入
+    // 单条插入，查询插入的完整记录
+    const insertedData = await this.queryInsertedRecords(query.table, [insertId]);
+
     return {
-      data: [
-        {
-          ...query.data,
-          id: insertId,
-        },
-      ],
+      data: insertedData,
       total: 1,
       count: 1,
     };
+  }
+
+  /**
+   * 查询插入的记录
+   * @param table 表名
+   * @param ids 插入的 ID 列表
+   * @returns 插入的完整记录
+   */
+  private async queryInsertedRecords(table: string, ids: number[]): Promise<any[]> {
+    this.logger.debug(`查询插入的记录: ${table}, IDs: ${ids.join(', ')}`);
+
+    if (ids.length === 0) {
+      return [];
+    }
+
+    // 构建 SELECT 查询，获取所有字段
+    const placeholders = ids.map(() => '?').join(',');
+    const sql = `SELECT * FROM \`${table}\` WHERE id IN (${placeholders})`;
+    
+    try {
+      const result = await this.databaseService.query(sql, ids);
+      const rows = this.extractRows(result);
+      
+      this.logger.debug(`查询到 ${rows.length} 条记录`);
+      return rows;
+    } catch (error) {
+      this.logger.error(`查询插入记录失败: ${error.message}`, error.stack);
+      // 如果查询失败，返回包含 ID 的原始数据
+      return ids.map(id => ({ id }));
+    }
   }
 
   /**

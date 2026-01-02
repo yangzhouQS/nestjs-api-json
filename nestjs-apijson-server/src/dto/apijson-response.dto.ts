@@ -26,7 +26,7 @@ export class APIJSONResponseDTO {
   @ApiPropertyOptional({
     description: '响应数据',
     example: {
-      User: {
+      user: {
         id: 1,
         name: '张三',
         age: 25,

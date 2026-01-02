@@ -662,22 +662,29 @@ export class APIJSONController {
     try {
       this.logger.log(`[APIJSON] 开始处理请求: ${httpMethod}, 请求体: ${JSON.stringify(request)}`);
 
-      // 生成缓存键
-      const cacheKey = this.generateCacheKey(request, httpMethod);
-      this.logger.log(`[APIJSON] 缓存键: ${cacheKey}`);
+      // 判断是否为查询操作（只对查询操作使用缓存）
+      const isQueryOperation = this.isQueryOperation(httpMethod, request);
+      this.logger.log(`[APIJSON] 是否为查询操作: ${isQueryOperation}`);
 
-      // 检查缓存
-      const cachedResponse = await this.cacheService.get(cacheKey);
-      if (cachedResponse) {
-        this.logger.log(`[APIJSON] 缓存命中，直接返回缓存数据`);
-        return {
-          ...cachedResponse,
-          cached: true,
-          processingTime: Date.now() - startTime,
-        };
+      // 只对查询操作检查和设置缓存
+      let cacheKey: string | null = null;
+      if (isQueryOperation) {
+        cacheKey = this.generateCacheKey(request, httpMethod);
+        this.logger.log(`[APIJSON] 缓存键: ${cacheKey}`);
+
+        // 检查缓存
+        const cachedResponse = await this.cacheService.get(cacheKey);
+        if (cachedResponse) {
+          this.logger.log(`[APIJSON] 缓存命中，直接返回缓存数据`);
+          return {
+            ...cachedResponse,
+            cached: true,
+            processingTime: Date.now() - startTime,
+          };
+        }
+
+        this.logger.log(`[APIJSON] 缓存未命中，开始解析请求`);
       }
-
-      this.logger.log(`[APIJSON] 缓存未命中，开始解析请求`);
 
       // 解析请求
       const parseResult = await this.coreParserService.parse(request, httpMethod);
@@ -728,9 +735,10 @@ export class APIJSONController {
         cached: false,
       };
 
-      // 缓存响应（仅缓存查询操作）
-      if (this.isCacheableRequest(request)) {
-        await this.cacheService.set(cacheKey, response, 300000); // 5分钟
+      // 只对查询操作缓存响应
+      if (isQueryOperation && this.isCacheableRequest(request)) {
+        await this.cacheService.set(cacheKey!, response, 300000); // 5分钟
+        this.logger.log(`[APIJSON] 响应已缓存`);
       }
 
       return response;
@@ -757,13 +765,33 @@ export class APIJSONController {
   }
 
   /**
+   * 判断是否为查询操作
+   * 只有 GET 和 HEAD 方法是查询操作，POST、PUT、DELETE 不是
+   */
+  private isQueryOperation(httpMethod: string, request: APIJSONRequest): boolean {
+    const method = httpMethod.toUpperCase();
+    
+    // 只缓存 GET 和 HEAD 请求
+    if (method !== 'GET' && method !== 'HEAD') {
+      return false;
+    }
+    
+    // 检查是否有 @method 指令（如果有，则不是纯查询操作）
+    const hasMethodDirective = Object.keys(request).some(key => key === '@method');
+    if (hasMethodDirective) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * 判断是否为可缓存的请求
+   * 只有查询操作且不包含数组查询的请求才可缓存
    */
   private isCacheableRequest(request: APIJSONRequest): boolean {
-    // 只缓存 GET 和 HEAD 请求
+    // 不缓存数组查询
     const hasArrayKey = Object.keys(request).some(key => key.endsWith('[]'));
-    const hasMethodDirective = Object.keys(request).some(key => key === '@method');
-    
-    return !hasArrayKey && !hasMethodDirective;
+    return !hasArrayKey;
   }
 }

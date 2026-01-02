@@ -49,7 +49,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
    * 执行查询
    */
   async query(sql: string, params: any[] = []): Promise<any> {
-    this.logger.debug(`执行查询: ${sql}, 参数: ${JSON.stringify(params)}`);
+    this.logger.debug(`执行SQL语句: ${sql}, 参数: ${JSON.stringify(params)}`);
 
     try {
       // 根据数据库类型执行查询
@@ -64,7 +64,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           throw new Error(`不支持的数据库类型: ${this.config.type}`);
       }
     } catch (error) {
-      this.logger.error(`查询执行失败: ${error.message}`, error.stack);
+      this.logger.error(`SQL语句执行失败: ${error.message}`, error.stack);
       throw error;
     }
   }
@@ -340,13 +340,25 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const [rows, fields] = await this.mysqlPool.query(sql, params);
+      const [result, fields] = await this.mysqlPool.query(sql, params);
+	    
+      // 判断结果类型：ResultSetHeader（INSERT/UPDATE/DELETE）还是查询结果（SELECT）
+      // ResultSetHeader 对象有 affectedRows、insertId 等属性
+      const isResultSetHeader = result && typeof result === 'object' &&
+                             'affectedRows' in result &&
+                             'insertId' in result;
       
-      return {
-        rows: Array.isArray(rows) ? rows : [],
-        rowCount: Array.isArray(rows) ? rows.length : 0,
-        fields: fields || [],
-      };
+      if (isResultSetHeader) {
+        // INSERT/UPDATE/DELETE 操作，返回 ResultSetHeader 对象
+        return result;
+      } else {
+        // SELECT 查询，返回数组格式
+        return {
+          rows: Array.isArray(result) ? result : [],
+          rowCount: Array.isArray(result) ? result.length : 0,
+          fields: fields || [],
+        };
+      }
     } catch (error) {
       this.logger.error(`MySQL查询执行失败: ${error.message}`, error.stack);
       throw error;
