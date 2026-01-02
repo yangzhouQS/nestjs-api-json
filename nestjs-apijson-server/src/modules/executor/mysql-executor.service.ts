@@ -305,12 +305,65 @@ export class MySQLExecutorService {
       };
     }
 
-    // 单条更新
+    // 单条更新，查询更新后的完整记录
+    // 从 where 条件中提取 id（因为解析器将 id 从 data 中分离到 where）
+    let recordId: number | undefined;
+    
+    // 优先从 where 条件中查找 id
+    if (query.where && query.where.id !== undefined) {
+      recordId = query.where.id;
+    }
+    // 如果 where 中没有，尝试从 data 中查找
+    else if (query.data && query.data.id !== undefined) {
+      recordId = query.data.id;
+    }
+
+    if (recordId !== undefined) {
+      try {
+        const updatedData = await this.queryUpdatedRecord(query.table, recordId);
+        return {
+          data: updatedData,
+          total: 1,
+          count: 1,
+        };
+      } catch (error) {
+        this.logger.error(`查询更新后的记录失败: ${error.message}`, error.stack);
+        // 如果查询失败，返回原始数据
+        return {
+          data: [query.data],
+          total: 1,
+          count: 1,
+        };
+      }
+    }
+
+    // 单条更新，没有 id，返回原始数据
     return {
       data: [query.data],
       total: 1,
       count: 1,
     };
+  }
+
+  /**
+   * 查询更新后的记录
+   * @param table 表名
+   * @param id 记录 ID
+   * @returns 更新后的完整记录
+   */
+  private async queryUpdatedRecord(table: string, id: number): Promise<any[]> {
+    this.logger.debug(`查询更新后的记录: ${table}, ID: ${id}`);
+
+    const sql = `SELECT * FROM \`${table}\` WHERE id = ?`;
+    
+    try {
+      const result = await this.databaseService.query(sql, [id]);
+      const rows = this.extractRows(result);
+      return rows;
+    } catch (error) {
+      this.logger.error(`查询更新后的记录失败: ${error.message}`, error.stack);
+      return [{ id }];
+    }
   }
 
   /**

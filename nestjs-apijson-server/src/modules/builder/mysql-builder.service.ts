@@ -222,7 +222,8 @@ export class MySQLBuilderService {
     const whereClause = whereResult.where;
     params.push(...whereResult.params);
 
-    const sql = `UPDATE \`${tableName}\` SET ${setClause}${whereClause}`;
+    // 确保在 WHERE 前添加空格（如果 whereClause 不为空）
+    const sql = `UPDATE \`${tableName}\` SET ${setClause}${whereClause ? ' ' + whereClause : ''}`;
     return { sql, params };
   }
 

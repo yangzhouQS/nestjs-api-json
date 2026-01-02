@@ -137,30 +137,80 @@ export class CoreParserService {
 
     // 如果是对象，处理对象查询
     if (typeof tableData === 'object' && tableData !== null) {
-      // 解析 WHERE 条件和引用字段
-      const whereResult = this.parseWhere(tableData);
-      
-      return {
-        name: tableName,
-        operation,
-        columns: this.parseColumns(tableData['@column'] || tableData['columns']),
-        where: whereResult.where,
-        joins: this.parseJoins(tableData['@join'] || tableData['joins']),
-        group: this.parseGroup(tableData['@group'] || tableData['group']),
-        having: this.parseHaving(tableData['@having'] || tableData['having']),
-        order: this.parseOrder(tableData['@order'] || tableData['order']),
-        limit: this.parseLimit(tableData['@count'] || tableData['count'] || tableData['limit']),
-        offset: this.parseOffset(tableData['@page'] || tableData['page']),
-        isArray,
-        query: this.parseQueryType(tableData['@query'] || tableData['query']),
-        cache: this.parseCache(tableData['@cache'] || tableData['cache']),
-        role: tableData['@role'] || tableData['role'],
-        database: tableData['@database'] || tableData['database'],
-        schema: tableData['@schema'] || tableData['schema'],
-        explain: tableData['@explain'] || tableData['explain'],
-        data: tableData, // 用于 INSERT/UPDATE 操作
-        references: whereResult.references, // 添加引用字段映射
-      };
+      // 对于 UPDATE 操作，需要区分 WHERE 条件和要更新的数据
+      if (operation === TableOperation.UPDATE) {
+        // UPDATE 操作：id 在 WHERE 条件中，其他字段在 SET 子句中
+        const updateData: any = {};
+        const whereConditions: any = {};
+        const references: { [key: string]: string } = {};
+        
+        for (const [key, value] of Object.entries(tableData)) {
+          // 跳过指令和特殊字段
+          if (this.isDirectiveKey(key) || this.isSpecialField(key)) {
+            continue;
+          }
+          
+          // id 字段作为 WHERE 条件
+          if (key === 'id') {
+            whereConditions[key] = value;
+          } else if (key.endsWith('@')) {
+            // 引用赋值，如 order_id@: "/receive/id"
+            const fieldName = key.slice(0, -1);
+            whereConditions[fieldName] = value; // 临时保存引用路径
+            references[fieldName] = String(value); // 记录引用映射，确保类型为 string
+          } else {
+            // 其他字段作为要更新的数据
+            updateData[key] = value;
+          }
+        }
+        
+        return {
+          name: tableName,
+          operation,
+          columns: this.parseColumns(tableData['@column'] || tableData['columns']),
+          where: whereConditions,
+          joins: this.parseJoins(tableData['@join'] || tableData['joins']),
+          group: this.parseGroup(tableData['@group'] || tableData['group']),
+          having: this.parseHaving(tableData['@having'] || tableData['having']),
+          order: this.parseOrder(tableData['@order'] || tableData['order']),
+          limit: this.parseLimit(tableData['@count'] || tableData['count'] || tableData['limit']),
+          offset: this.parseOffset(tableData['@page'] || tableData['page']),
+          isArray,
+          query: this.parseQueryType(tableData['@query'] || tableData['query']),
+          cache: this.parseCache(tableData['@cache'] || tableData['cache']),
+          role: tableData['@role'] || tableData['role'],
+          database: tableData['@database'] || tableData['database'],
+          schema: tableData['@schema'] || tableData['schema'],
+          explain: tableData['@explain'] || tableData['explain'],
+          data: updateData, // 用于 UPDATE 操作（不包含 id）
+          references: references, // 添加引用字段映射
+        };
+      } else {
+        // 其他操作：正常解析 WHERE 条件和引用字段
+        const whereResult = this.parseWhere(tableData);
+        
+        return {
+          name: tableName,
+          operation,
+          columns: this.parseColumns(tableData['@column'] || tableData['columns']),
+          where: whereResult.where,
+          joins: this.parseJoins(tableData['@join'] || tableData['joins']),
+          group: this.parseGroup(tableData['@group'] || tableData['group']),
+          having: this.parseHaving(tableData['@having'] || tableData['having']),
+          order: this.parseOrder(tableData['@order'] || tableData['order']),
+          limit: this.parseLimit(tableData['@count'] || tableData['count'] || tableData['limit']),
+          offset: this.parseOffset(tableData['@page'] || tableData['page']),
+          isArray,
+          query: this.parseQueryType(tableData['@query'] || tableData['query']),
+          cache: this.parseCache(tableData['@cache'] || tableData['cache']),
+          role: tableData['@role'] || tableData['role'],
+          database: tableData['@database'] || tableData['database'],
+          schema: tableData['@schema'] || tableData['schema'],
+          explain: tableData['@explain'] || tableData['explain'],
+          data: tableData, // 用于 INSERT/UPDATE 操作
+          references: whereResult.references, // 添加引用字段映射
+        };
+      }
     }
 
     // 默认查询
